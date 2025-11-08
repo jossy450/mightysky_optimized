@@ -72,6 +72,29 @@ export default function StaffDashboard() {
     );
   }
 
+  // Check if user is an admin
+  if (user?.role !== "admin") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>You do not have permission to access the staff dashboard</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 mb-4">
+              This page is restricted to administrators only. If you believe you should have access,
+              please contact your system administrator.
+            </p>
+            <Button asChild variant="outline" className="w-full">
+              <a href="/">Return to Home</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">

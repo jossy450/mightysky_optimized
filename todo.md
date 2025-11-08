@@ -41,4 +41,10 @@
 - [x] Add answer form for each request
 - [x] Integrate with existing tRPC endpoints for fetching and answering requests
 - [x] Test the full dashboard workflow
+- [x] Save checkpoint for deployment
+
+## Phase 8: Role-Based Access Control (RBAC)
+- [x] Add admin-only access check to StaffDashboard component
+- [x] Display appropriate error message for non-admin users
+- [x] Test RBAC with admin and regular user accounts
 - [ ] Save checkpoint for deployment
