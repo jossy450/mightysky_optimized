@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Loader2, TrendingUp, Users, Clock, PieChart, Download } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 export default function Analytics() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -43,6 +44,11 @@ export default function Analytics() {
 
   const { data: surveyData, isLoading: surveyLoading } = trpc.survey.analytics.useQuery(
     dateRange,
+    { enabled: isAuthenticated && user?.role === "admin" }
+  );
+
+  const { data: trendsData, isLoading: trendsLoading } = trpc.survey.trends.useQuery(
+    { days: 30 },
     { enabled: isAuthenticated && user?.role === "admin" }
   );
 
@@ -112,7 +118,7 @@ export default function Analytics() {
     );
   }
 
-  const isLoading = responseTimeLoading || staffPerformanceLoading || priorityDistributionLoading || surveyLoading;
+  const isLoading = responseTimeLoading || staffPerformanceLoading || priorityDistributionLoading || surveyLoading || trendsLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -311,6 +317,59 @@ export default function Analytics() {
                       </CardContent>
                     </Card>
                   </div>
+
+                  {/* Satisfaction Trends Chart */}
+                  {trendsData && trendsData.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Satisfaction Trends (Past 30 Days)</CardTitle>
+                        <CardDescription>Daily average customer satisfaction ratings</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <LineChart data={trendsData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis
+                              dataKey="date"
+                              tickFormatter={(value) => {
+                                const date = new Date(value);
+                                return `${date.getMonth() + 1}/${date.getDate()}`;
+                              }}
+                            />
+                            <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
+                            <Tooltip
+                              labelFormatter={(value) => {
+                                const date = new Date(value as string);
+                                return date.toLocaleDateString();
+                              }}
+                              formatter={(value: any, name: string) => {
+                                if (name === "averageRating") {
+                                  return value !== null ? [value, "Average Rating"] : ["No data", "Average Rating"];
+                                }
+                                return [value, name];
+                              }}
+                            />
+                            <Legend />
+                            <Line
+                              type="monotone"
+                              dataKey="averageRating"
+                              stroke="#3b82f6"
+                              strokeWidth={2}
+                              dot={{ r: 4 }}
+                              connectNulls
+                              name="Average Rating"
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                        <div className="mt-4 text-sm text-gray-600">
+                          <p>
+                            This chart shows the daily average satisfaction rating over the past 30 days. Days without
+                            survey responses are connected to show the overall trend.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   <Card>
                     <CardHeader>

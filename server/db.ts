@@ -506,3 +506,50 @@ export async function getSatisfactionSurveyAnalytics(params?: {
       })),
   };
 }
+
+export async function getSatisfactionTrends(days: number = 30) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Get surveys from the past N days
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  const surveys = await db
+    .select()
+    .from(satisfactionSurveys)
+    .where(gte(satisfactionSurveys.createdAt, startDate))
+    .orderBy(satisfactionSurveys.createdAt);
+
+  // Group by date and calculate daily average
+  const dailyData = new Map<string, { total: number; count: number }>();
+
+  surveys.forEach(survey => {
+    const dateKey = survey.createdAt.toISOString().split('T')[0]; // YYYY-MM-DD
+    const existing = dailyData.get(dateKey) || { total: 0, count: 0 };
+    dailyData.set(dateKey, {
+      total: existing.total + survey.rating,
+      count: existing.count + 1,
+    });
+  });
+
+  // Generate array with all dates in range, filling gaps with null
+  const result = [];
+  const currentDate = new Date(startDate);
+  const today = new Date();
+
+  while (currentDate <= today) {
+    const dateKey = currentDate.toISOString().split('T')[0];
+    const data = dailyData.get(dateKey);
+
+    result.push({
+      date: dateKey,
+      averageRating: data ? Math.round((data.total / data.count) * 10) / 10 : null,
+      surveyCount: data ? data.count : 0,
+    });
+
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return result;
+}

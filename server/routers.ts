@@ -20,6 +20,7 @@ import {
   createKnowledgeBasePair,
   createSatisfactionSurvey,
   getSatisfactionSurveyAnalytics,
+  getSatisfactionTrends,
 } from "./db";
 import { detectPriority } from "./priorityDetection";
 import { notifyStaffOfNewRequest, sendAnswerToCustomer } from "./emailService";
@@ -218,6 +219,15 @@ export const appRouter = router({
             }
           : undefined;
         return await getSatisfactionSurveyAnalytics(params);
+      }),
+    trends: protectedProcedure
+      .input(
+        z.object({
+          days: z.number().optional().default(30),
+        }).optional()
+      )
+      .query(async ({ input }) => {
+        return await getSatisfactionTrends(input?.days || 30);
       }),
   }),
 
