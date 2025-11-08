@@ -1,4 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { DateRangePicker } from "@/components/DateRangePicker";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLoginUrl } from "@/const";
@@ -7,20 +9,21 @@ import { Loader2, TrendingUp, Users, Clock, PieChart } from "lucide-react";
 
 export default function Analytics() {
   const { user, loading, isAuthenticated } = useAuth();
+  const [dateRange, setDateRange] = useState<{ startDate?: string; endDate?: string }>({});
 
   // Fetch analytics data
   const { data: responseTimeData, isLoading: responseTimeLoading } = trpc.analytics.getResponseTimeByPriority.useQuery(
-    undefined,
+    dateRange,
     { enabled: isAuthenticated && user?.role === "admin" }
   );
 
   const { data: staffPerformanceData, isLoading: staffPerformanceLoading } = trpc.analytics.getStaffPerformance.useQuery(
-    undefined,
+    dateRange,
     { enabled: isAuthenticated && user?.role === "admin" }
   );
 
   const { data: priorityDistributionData, isLoading: priorityDistributionLoading } = trpc.analytics.getPriorityDistribution.useQuery(
-    undefined,
+    dateRange,
     { enabled: isAuthenticated && user?.role === "admin" }
   );
 
@@ -101,9 +104,16 @@ export default function Analytics() {
             <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
             <p className="text-gray-600 mt-1">Track customer service performance and trends</p>
           </div>
-          <Button asChild variant="outline">
-            <a href="/staff">Go to Staff Dashboard</a>
-          </Button>
+          <div className="flex gap-2">
+            <DateRangePicker
+              onDateRangeChange={(startDate, endDate) => {
+                setDateRange({ startDate, endDate });
+              }}
+            />
+            <Button asChild variant="outline">
+              <a href="/staff">Go to Staff Dashboard</a>
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (

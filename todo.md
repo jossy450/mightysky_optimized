@@ -83,4 +83,15 @@
 - [x] Add staff performance table
 - [x] Add navigation link to Analytics page in the app
 - [x] Test analytics dashboard with real data
+- [x] Save checkpoint for deployment
+
+## Phase 13: Date Range Filtering for Analytics
+- [x] Update backend API endpoints to accept optional startDate and endDate parameters
+- [x] Modify database query helpers to filter by date range
+- [x] Install date picker library (react-day-picker or similar)
+- [x] Add date range picker UI component to Analytics page
+- [x] Add preset date range buttons (Last 7 Days, Last 30 Days, etc.)
+- [x] Implement state management for selected date range
+- [x] Update all analytics queries to pass date range parameters
+- [x] Test date filtering with various date ranges
 - [ ] Save checkpoint for deployment

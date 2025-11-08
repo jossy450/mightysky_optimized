@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql, like, and, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -90,7 +90,6 @@ export async function getUserByOpenId(openId: string) {
 }
 
 import { knowledgeBase, customerServiceRequests, InsertKnowledgeBase, InsertCustomerServiceRequest } from "../drizzle/schema";
-import { like } from "drizzle-orm";
 
 /**
  * Search the knowledge base for a question that matches the user's query.
@@ -236,17 +235,26 @@ export async function getAnsweredRequests() {
 /**
  * Get analytics data for average response time by priority.
  */
-export async function getAverageResponseTimeByPriority() {
+export async function getAverageResponseTimeByPriority(startDate?: string, endDate?: string) {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot get analytics: database not available");
     return [];
   }
 
+  // Build where conditions
+  const conditions = [eq(customerServiceRequests.status, "answered")];
+  if (startDate) {
+    conditions.push(gte(customerServiceRequests.createdAt, new Date(startDate)));
+  }
+  if (endDate) {
+    conditions.push(lte(customerServiceRequests.createdAt, new Date(endDate)));
+  }
+
   const results = await db
     .select()
     .from(customerServiceRequests)
-    .where(eq(customerServiceRequests.status, "answered"));
+    .where(and(...conditions));
 
   // Calculate average response time for each priority
   const stats: { high: number[]; medium: number[]; low: number[] } = { high: [], medium: [], low: [] };
@@ -286,17 +294,26 @@ export async function getAverageResponseTimeByPriority() {
 /**
  * Get staff performance metrics.
  */
-export async function getStaffPerformanceMetrics() {
+export async function getStaffPerformanceMetrics(startDate?: string, endDate?: string) {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot get staff metrics: database not available");
     return [];
   }
 
+  // Build where conditions
+  const conditions = [eq(customerServiceRequests.status, "answered")];
+  if (startDate) {
+    conditions.push(gte(customerServiceRequests.createdAt, new Date(startDate)));
+  }
+  if (endDate) {
+    conditions.push(lte(customerServiceRequests.createdAt, new Date(endDate)));
+  }
+
   const results = await db
     .select()
     .from(customerServiceRequests)
-    .where(eq(customerServiceRequests.status, "answered"));
+    .where(and(...conditions));
 
   // Group by staff member
   const staffStats: Record<string, { responseTimes: number[]; count: number }> = {};
@@ -322,16 +339,30 @@ export async function getStaffPerformanceMetrics() {
 /**
  * Get priority distribution for all requests.
  */
-export async function getPriorityDistribution() {
+export async function getPriorityDistribution(startDate?: string, endDate?: string) {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot get priority distribution: database not available");
     return [];
   }
 
-  const results = await db
-    .select()
-    .from(customerServiceRequests);
+  // Build where conditions
+  const conditions = [];
+  if (startDate) {
+    conditions.push(gte(customerServiceRequests.createdAt, new Date(startDate)));
+  }
+  if (endDate) {
+    conditions.push(lte(customerServiceRequests.createdAt, new Date(endDate)));
+  }
+
+  const results = conditions.length > 0
+    ? await db
+        .select()
+        .from(customerServiceRequests)
+        .where(and(...conditions))
+    : await db
+        .select()
+        .from(customerServiceRequests);
 
   const distribution = { high: 0, medium: 0, low: 0 };
   

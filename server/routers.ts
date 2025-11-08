@@ -127,15 +127,36 @@ export const appRouter = router({
 
   // Analytics endpoints
   analytics: router({
-    getResponseTimeByPriority: protectedProcedure.query(async () => {
-      return await getAverageResponseTimeByPriority();
-    }),
-    getStaffPerformance: protectedProcedure.query(async () => {
-      return await getStaffPerformanceMetrics();
-    }),
-    getPriorityDistribution: protectedProcedure.query(async () => {
-      return await getPriorityDistribution();
-    }),
+    getResponseTimeByPriority: protectedProcedure
+      .input(
+        z.object({
+          startDate: z.string().optional(),
+          endDate: z.string().optional(),
+        })
+      )
+      .query(async ({ input }) => {
+        return await getAverageResponseTimeByPriority(input.startDate, input.endDate);
+      }),
+    getStaffPerformance: protectedProcedure
+      .input(
+        z.object({
+          startDate: z.string().optional(),
+          endDate: z.string().optional(),
+        })
+      )
+      .query(async ({ input }) => {
+        return await getStaffPerformanceMetrics(input.startDate, input.endDate);
+      }),
+    getPriorityDistribution: protectedProcedure
+      .input(
+        z.object({
+          startDate: z.string().optional(),
+          endDate: z.string().optional(),
+        })
+      )
+      .query(async ({ input }) => {
+        return await getPriorityDistribution(input.startDate, input.endDate);
+      }),
   }),
 
 
