@@ -71,4 +71,16 @@
 - [x] Sort pending requests by priority in the dashboard
 - [x] Add visual priority badges (colored) to the UI
 - [x] Test priority system with various keywords
+- [x] Save checkpoint for deployment
+
+## Phase 12: Analytics Dashboard
+- [x] Create backend API endpoint for average response time by priority
+- [x] Create backend API endpoint for staff performance metrics
+- [x] Create backend API endpoint for request volume trends
+- [x] Create backend API endpoint for priority distribution
+- [x] Build Analytics page component with metric cards
+- [x] Add response time charts using a charting library
+- [x] Add staff performance table
+- [x] Add navigation link to Analytics page in the app
+- [x] Test analytics dashboard with real data
 - [ ] Save checkpoint for deployment

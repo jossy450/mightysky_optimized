@@ -11,6 +11,9 @@ import {
   addToKnowledgeBase,
   answerCustomerServiceRequest,
   getAnsweredRequests,
+  getAverageResponseTimeByPriority,
+  getStaffPerformanceMetrics,
+  getPriorityDistribution,
 } from "./db";
 import { detectPriority } from "./priorityDetection";
 import { notifyStaffOfNewRequest, sendAnswerToCustomer } from "./emailService";
@@ -81,9 +84,8 @@ export const appRouter = router({
     /**
      * Get all answered customer service requests (for audit log).
      */
-    getAnsweredRequests: protectedProcedure.query(async () => {
-      const requests = await getAnsweredRequests();
-      return requests;
+       getAnsweredRequests: protectedProcedure.query(async () => {
+      return await getAnsweredRequests();
     }),
 
     /**
@@ -122,6 +124,21 @@ export const appRouter = router({
         return { success: true, userEmail: request.userEmail };
       }),
   }),
+
+  // Analytics endpoints
+  analytics: router({
+    getResponseTimeByPriority: protectedProcedure.query(async () => {
+      return await getAverageResponseTimeByPriority();
+    }),
+    getStaffPerformance: protectedProcedure.query(async () => {
+      return await getStaffPerformanceMetrics();
+    }),
+    getPriorityDistribution: protectedProcedure.query(async () => {
+      return await getPriorityDistribution();
+    }),
+  }),
+
+
 });
 
 export type AppRouter = typeof appRouter;

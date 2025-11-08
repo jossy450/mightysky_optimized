@@ -232,3 +232,116 @@ export async function getAnsweredRequests() {
 
   return results;
 }
+
+/**
+ * Get analytics data for average response time by priority.
+ */
+export async function getAverageResponseTimeByPriority() {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get analytics: database not available");
+    return [];
+  }
+
+  const results = await db
+    .select()
+    .from(customerServiceRequests)
+    .where(eq(customerServiceRequests.status, "answered"));
+
+  // Calculate average response time for each priority
+  const stats: { high: number[]; medium: number[]; low: number[] } = { high: [], medium: [], low: [] };
+  
+  results.forEach((req) => {
+    if (req.answeredAt && req.createdAt) {
+      const responseTime = req.answeredAt.getTime() - req.createdAt.getTime();
+      stats[req.priority].push(responseTime);
+    }
+  });
+
+  return [
+    {
+      priority: "high",
+      avgResponseTime: stats.high.length > 0 
+        ? stats.high.reduce((a, b) => a + b, 0) / stats.high.length 
+        : 0,
+      count: stats.high.length,
+    },
+    {
+      priority: "medium",
+      avgResponseTime: stats.medium.length > 0 
+        ? stats.medium.reduce((a, b) => a + b, 0) / stats.medium.length 
+        : 0,
+      count: stats.medium.length,
+    },
+    {
+      priority: "low",
+      avgResponseTime: stats.low.length > 0 
+        ? stats.low.reduce((a, b) => a + b, 0) / stats.low.length 
+        : 0,
+      count: stats.low.length,
+    },
+  ];
+}
+
+/**
+ * Get staff performance metrics.
+ */
+export async function getStaffPerformanceMetrics() {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get staff metrics: database not available");
+    return [];
+  }
+
+  const results = await db
+    .select()
+    .from(customerServiceRequests)
+    .where(eq(customerServiceRequests.status, "answered"));
+
+  // Group by staff member
+  const staffStats: Record<string, { responseTimes: number[]; count: number }> = {};
+  
+  results.forEach((req) => {
+    if (req.answeredBy && req.answeredAt && req.createdAt) {
+      if (!staffStats[req.answeredBy]) {
+        staffStats[req.answeredBy] = { responseTimes: [], count: 0 };
+      }
+      const responseTime = req.answeredAt.getTime() - req.createdAt.getTime();
+      staffStats[req.answeredBy].responseTimes.push(responseTime);
+      staffStats[req.answeredBy].count++;
+    }
+  });
+
+  return Object.entries(staffStats).map(([staffName, stats]) => ({
+    staffName,
+    totalAnswered: stats.count,
+    avgResponseTime: stats.responseTimes.reduce((a, b) => a + b, 0) / stats.responseTimes.length,
+  }));
+}
+
+/**
+ * Get priority distribution for all requests.
+ */
+export async function getPriorityDistribution() {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get priority distribution: database not available");
+    return [];
+  }
+
+  const results = await db
+    .select()
+    .from(customerServiceRequests);
+
+  const distribution = { high: 0, medium: 0, low: 0 };
+  
+  results.forEach((req) => {
+    distribution[req.priority]++;
+  });
+
+  return [
+    { priority: "high", count: distribution.high },
+    { priority: "medium", count: distribution.medium },
+    { priority: "low", count: distribution.low },
+  ];
+}

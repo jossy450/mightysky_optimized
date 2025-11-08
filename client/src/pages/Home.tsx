@@ -31,9 +31,14 @@ export default function Home() {
         
         {isAuthenticated && (
           <div className="mt-4">
-            <Button asChild variant="outline">
-              <Link href="/staff">Go to Staff Dashboard</Link>
-            </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <a href="/staff">Go to Staff Dashboard</a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href="/analytics">View Analytics</a>
+          </Button>
+        </div>
           </div>
         )}
       </main>
