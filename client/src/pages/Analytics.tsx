@@ -1,15 +1,29 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { useState } from "react";
+import { exportAnalyticsToCSV } from "@/lib/csvExport";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { Loader2, TrendingUp, Users, Clock, PieChart } from "lucide-react";
+import { Loader2, TrendingUp, Users, Clock, PieChart, Download } from "lucide-react";
 
 export default function Analytics() {
   const { user, loading, isAuthenticated } = useAuth();
   const [dateRange, setDateRange] = useState<{ startDate?: string; endDate?: string }>({});
+
+  const handleExportCSV = () => {
+    if (!responseTimeData || !staffPerformanceData || !priorityDistributionData) {
+      return;
+    }
+
+    exportAnalyticsToCSV({
+      responseTime: responseTimeData,
+      staffPerformance: staffPerformanceData,
+      priorityDistribution: priorityDistributionData,
+      dateRange,
+    });
+  };
 
   // Fetch analytics data
   const { data: responseTimeData, isLoading: responseTimeLoading } = trpc.analytics.getResponseTimeByPriority.useQuery(
@@ -110,6 +124,14 @@ export default function Analytics() {
                 setDateRange({ startDate, endDate });
               }}
             />
+            <Button
+              variant="outline"
+              onClick={handleExportCSV}
+              disabled={isLoading || !responseTimeData}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Report
+            </Button>
             <Button asChild variant="outline">
               <a href="/staff">Go to Staff Dashboard</a>
             </Button>
