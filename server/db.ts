@@ -89,4 +89,118 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+import { knowledgeBase, customerServiceRequests, InsertKnowledgeBase, InsertCustomerServiceRequest } from "../drizzle/schema";
+import { like, desc } from "drizzle-orm";
+
+/**
+ * Search the knowledge base for a question that matches the user's query.
+ * Uses a simple LIKE search for now; can be enhanced with full-text search later.
+ */
+export async function searchKnowledgeBase(query: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot search knowledge base: database not available");
+    return [];
+  }
+
+  const results = await db
+    .select()
+    .from(knowledgeBase)
+    .where(like(knowledgeBase.question, `%${query}%`))
+    .limit(5);
+
+  return results;
+}
+
+/**
+ * Add a new Q&A pair to the knowledge base.
+ */
+export async function addToKnowledgeBase(data: InsertKnowledgeBase) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot add to knowledge base: database not available");
+    return null;
+  }
+
+  const result = await db.insert(knowledgeBase).values(data);
+  return result;
+}
+
+/**
+ * Create a new customer service request.
+ */
+export async function createCustomerServiceRequest(data: InsertCustomerServiceRequest) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot create customer service request: database not available");
+    return null;
+  }
+
+  const result = await db.insert(customerServiceRequests).values(data);
+  return result;
+}
+
+/**
+ * Get all pending customer service requests.
+ */
+export async function getPendingRequests() {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get pending requests: database not available");
+    return [];
+  }
+
+  const results = await db
+    .select()
+    .from(customerServiceRequests)
+    .where(eq(customerServiceRequests.status, "pending"))
+    .orderBy(desc(customerServiceRequests.createdAt));
+
+  return results;
+}
+
+/**
+ * Update a customer service request with an answer and mark it as answered.
+ */
+export async function answerCustomerServiceRequest(
+  requestId: number,
+  answer: string,
+  answeredBy: string
+) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot answer customer service request: database not available");
+    return null;
+  }
+
+  const result = await db
+    .update(customerServiceRequests)
+    .set({
+      answer,
+      answeredBy,
+      status: "answered",
+      answeredAt: new Date(),
+    })
+    .where(eq(customerServiceRequests.id, requestId));
+
+  return result;
+}
+
+/**
+ * Get a customer service request by ID.
+ */
+export async function getCustomerServiceRequestById(requestId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get customer service request: database not available");
+    return null;
+  }
+
+  const results = await db
+    .select()
+    .from(customerServiceRequests)
+    .where(eq(customerServiceRequests.id, requestId))
+    .limit(1);
+
+  return results.length > 0 ? results[0] : null;
+}

@@ -25,4 +25,33 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Knowledge Base table for storing Q&A pairs that the chatbot learns.
+ */
+export const knowledgeBase = mysqlTable("knowledge_base", {
+  id: int("id").autoincrement().primaryKey(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type KnowledgeBase = typeof knowledgeBase.$inferSelect;
+export type InsertKnowledgeBase = typeof knowledgeBase.$inferInsert;
+
+/**
+ * Customer Service Requests table for tracking unanswered questions.
+ */
+export const customerServiceRequests = mysqlTable("customer_service_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  userEmail: varchar("userEmail", { length: 320 }).notNull(),
+  question: text("question").notNull(),
+  answer: text("answer"),
+  status: mysqlEnum("status", ["pending", "answered"]).default("pending").notNull(),
+  answeredBy: varchar("answeredBy", { length: 255 }), // Staff member who answered
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  answeredAt: timestamp("answeredAt"),
+});
+
+export type CustomerServiceRequest = typeof customerServiceRequests.$inferSelect;
+export type InsertCustomerServiceRequest = typeof customerServiceRequests.$inferInsert;
