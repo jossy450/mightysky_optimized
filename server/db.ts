@@ -507,18 +507,37 @@ export async function getSatisfactionSurveyAnalytics(params?: {
   };
 }
 
-export async function getSatisfactionTrends(days: number = 30) {
+export async function getSatisfactionTrends(params?: {
+  days?: number;
+  startDate?: Date;
+  endDate?: Date;
+}) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  // Get surveys from the past N days
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
+  // Determine date range
+  let startDate: Date;
+  let endDate: Date;
+
+  if (params?.startDate && params?.endDate) {
+    startDate = params.startDate;
+    endDate = params.endDate;
+  } else {
+    const days = params?.days || 30;
+    endDate = new Date();
+    startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+  }
 
   const surveys = await db
     .select()
     .from(satisfactionSurveys)
-    .where(gte(satisfactionSurveys.createdAt, startDate))
+    .where(
+      and(
+        gte(satisfactionSurveys.createdAt, startDate),
+        lte(satisfactionSurveys.createdAt, endDate)
+      )
+    )
     .orderBy(satisfactionSurveys.createdAt);
 
   // Group by date and calculate daily average
@@ -536,9 +555,8 @@ export async function getSatisfactionTrends(days: number = 30) {
   // Generate array with all dates in range, filling gaps with null
   const result = [];
   const currentDate = new Date(startDate);
-  const today = new Date();
 
-  while (currentDate <= today) {
+  while (currentDate <= endDate) {
     const dateKey = currentDate.toISOString().split('T')[0];
     const data = dailyData.get(dateKey);
 
@@ -552,4 +570,65 @@ export async function getSatisfactionTrends(days: number = 30) {
   }
 
   return result;
+}
+
+export async function compareSatisfactionTrends(params: {
+  period1Start: Date;
+  period1End: Date;
+  period2Start: Date;
+  period2End: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Get trends for both periods
+  const period1Trends = await getSatisfactionTrends({
+    startDate: params.period1Start,
+    endDate: params.period1End,
+  });
+
+  const period2Trends = await getSatisfactionTrends({
+    startDate: params.period2Start,
+    endDate: params.period2End,
+  });
+
+  // Calculate summary statistics for each period
+  const calculateStats = (trends: typeof period1Trends) => {
+    const validRatings = trends.filter(t => t.averageRating !== null).map(t => t.averageRating!);
+    const totalSurveys = trends.reduce((sum, t) => sum + t.surveyCount, 0);
+    const avgRating = validRatings.length > 0
+      ? validRatings.reduce((sum, r) => sum + r, 0) / validRatings.length
+      : 0;
+
+    return {
+      averageRating: Math.round(avgRating * 10) / 10,
+      totalSurveys,
+      daysWithData: validRatings.length,
+    };
+  };
+
+  const period1Stats = calculateStats(period1Trends);
+  const period2Stats = calculateStats(period2Trends);
+
+  // Calculate comparison metrics
+  const ratingChange = period1Stats.averageRating - period2Stats.averageRating;
+  const percentageChange = period2Stats.averageRating > 0
+    ? Math.round((ratingChange / period2Stats.averageRating) * 100 * 10) / 10
+    : 0;
+
+  return {
+    period1: {
+      trends: period1Trends,
+      stats: period1Stats,
+    },
+    period2: {
+      trends: period2Trends,
+      stats: period2Stats,
+    },
+    comparison: {
+      ratingChange: Math.round(ratingChange * 10) / 10,
+      percentageChange,
+      surveyCountChange: period1Stats.totalSurveys - period2Stats.totalSurveys,
+    },
+  };
 }

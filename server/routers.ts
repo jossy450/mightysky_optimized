@@ -21,6 +21,7 @@ import {
   createSatisfactionSurvey,
   getSatisfactionSurveyAnalytics,
   getSatisfactionTrends,
+  compareSatisfactionTrends,
 } from "./db";
 import { detectPriority } from "./priorityDetection";
 import { notifyStaffOfNewRequest, sendAnswerToCustomer } from "./emailService";
@@ -223,11 +224,37 @@ export const appRouter = router({
     trends: protectedProcedure
       .input(
         z.object({
-          days: z.number().optional().default(30),
+          days: z.number().optional(),
+          startDate: z.string().optional(),
+          endDate: z.string().optional(),
         }).optional()
       )
       .query(async ({ input }) => {
-        return await getSatisfactionTrends(input?.days || 30);
+        const params = input
+          ? {
+              days: input.days,
+              startDate: input.startDate ? new Date(input.startDate) : undefined,
+              endDate: input.endDate ? new Date(input.endDate) : undefined,
+            }
+          : undefined;
+        return await getSatisfactionTrends(params);
+      }),
+    compare: protectedProcedure
+      .input(
+        z.object({
+          period1Start: z.string(),
+          period1End: z.string(),
+          period2Start: z.string(),
+          period2End: z.string(),
+        })
+      )
+      .query(async ({ input }) => {
+        return await compareSatisfactionTrends({
+          period1Start: new Date(input.period1Start),
+          period1End: new Date(input.period1End),
+          period2Start: new Date(input.period2Start),
+          period2End: new Date(input.period2End),
+        });
       }),
   }),
 

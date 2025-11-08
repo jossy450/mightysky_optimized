@@ -9,9 +9,87 @@ import { trpc } from "@/lib/trpc";
 import { Loader2, TrendingUp, Users, Clock, PieChart, Download } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
+type ComparisonPeriod = "this-month-vs-last" | "this-week-vs-last" | "last-30-vs-previous" | "custom";
+
 export default function Analytics() {
   const { user, loading, isAuthenticated } = useAuth();
   const [dateRange, setDateRange] = useState<{ startDate?: string; endDate?: string }>({});
+  const [comparisonMode, setComparisonMode] = useState(false);
+  const [comparisonPeriod, setComparisonPeriod] = useState<ComparisonPeriod>("this-month-vs-last");
+
+  // Helper function to calculate period dates
+  const getComparisonDates = (period: ComparisonPeriod) => {
+    const now = new Date();
+    const result = {
+      period1Start: "",
+      period1End: "",
+      period2Start: "",
+      period2End: "",
+      period1Label: "",
+      period2Label: "",
+    };
+
+    switch (period) {
+      case "this-month-vs-last": {
+        // This month
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        // Last month
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+        result.period1Start = thisMonthStart.toISOString();
+        result.period1End = thisMonthEnd.toISOString();
+        result.period2Start = lastMonthStart.toISOString();
+        result.period2End = lastMonthEnd.toISOString();
+        result.period1Label = "This Month";
+        result.period2Label = "Last Month";
+        break;
+      }
+      case "this-week-vs-last": {
+        // This week (last 7 days)
+        const thisWeekEnd = new Date();
+        const thisWeekStart = new Date();
+        thisWeekStart.setDate(thisWeekStart.getDate() - 6);
+        // Last week (7 days before this week)
+        const lastWeekEnd = new Date(thisWeekStart);
+        lastWeekEnd.setDate(lastWeekEnd.getDate() - 1);
+        const lastWeekStart = new Date(lastWeekEnd);
+        lastWeekStart.setDate(lastWeekStart.getDate() - 6);
+
+        result.period1Start = thisWeekStart.toISOString();
+        result.period1End = thisWeekEnd.toISOString();
+        result.period2Start = lastWeekStart.toISOString();
+        result.period2End = lastWeekEnd.toISOString();
+        result.period1Label = "This Week";
+        result.period2Label = "Last Week";
+        break;
+      }
+      case "last-30-vs-previous": {
+        // Last 30 days
+        const last30End = new Date();
+        const last30Start = new Date();
+        last30Start.setDate(last30Start.getDate() - 29);
+        // Previous 30 days
+        const prev30End = new Date(last30Start);
+        prev30End.setDate(prev30End.getDate() - 1);
+        const prev30Start = new Date(prev30End);
+        prev30Start.setDate(prev30Start.getDate() - 29);
+
+        result.period1Start = last30Start.toISOString();
+        result.period1End = last30End.toISOString();
+        result.period2Start = prev30Start.toISOString();
+        result.period2End = prev30End.toISOString();
+        result.period1Label = "Last 30 Days";
+        result.period2Label = "Previous 30 Days";
+        break;
+      }
+    }
+
+    return result;
+  };
+
+  const comparisonDates = comparisonMode ? getComparisonDates(comparisonPeriod) : null;
 
   const handleExportCSV = () => {
     if (!responseTimeData || !staffPerformanceData || !priorityDistributionData) {
@@ -49,7 +127,19 @@ export default function Analytics() {
 
   const { data: trendsData, isLoading: trendsLoading } = trpc.survey.trends.useQuery(
     { days: 30 },
-    { enabled: isAuthenticated && user?.role === "admin" }
+    { enabled: isAuthenticated && user?.role === "admin" && !comparisonMode }
+  );
+
+  const { data: comparisonData, isLoading: comparisonLoading } = trpc.survey.compare.useQuery(
+    comparisonDates
+      ? {
+          period1Start: comparisonDates.period1Start,
+          period1End: comparisonDates.period1End,
+          period2Start: comparisonDates.period2Start,
+          period2End: comparisonDates.period2End,
+        }
+      : { period1Start: "", period1End: "", period2Start: "", period2End: "" },
+    { enabled: isAuthenticated && user?.role === "admin" && comparisonMode && !!comparisonDates }
   );
 
   // Helper function to format milliseconds to human-readable time
@@ -118,7 +208,7 @@ export default function Analytics() {
     );
   }
 
-  const isLoading = responseTimeLoading || staffPerformanceLoading || priorityDistributionLoading || surveyLoading || trendsLoading;
+  const isLoading = responseTimeLoading || staffPerformanceLoading || priorityDistributionLoading || surveyLoading || trendsLoading || comparisonLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -319,57 +409,212 @@ export default function Analytics() {
                   </div>
 
                   {/* Satisfaction Trends Chart */}
-                  {trendsData && trendsData.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Satisfaction Trends (Past 30 Days)</CardTitle>
-                        <CardDescription>Daily average customer satisfaction ratings</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <LineChart data={trendsData}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis
-                              dataKey="date"
-                              tickFormatter={(value) => {
-                                const date = new Date(value);
-                                return `${date.getMonth() + 1}/${date.getDate()}`;
-                              }}
-                            />
-                            <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
-                            <Tooltip
-                              labelFormatter={(value) => {
-                                const date = new Date(value as string);
-                                return date.toLocaleDateString();
-                              }}
-                              formatter={(value: any, name: string) => {
-                                if (name === "averageRating") {
-                                  return value !== null ? [value, "Average Rating"] : ["No data", "Average Rating"];
-                                }
-                                return [value, name];
-                              }}
-                            />
-                            <Legend />
-                            <Line
-                              type="monotone"
-                              dataKey="averageRating"
-                              stroke="#3b82f6"
-                              strokeWidth={2}
-                              dot={{ r: 4 }}
-                              connectNulls
-                              name="Average Rating"
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                        <div className="mt-4 text-sm text-gray-600">
-                          <p>
-                            This chart shows the daily average satisfaction rating over the past 30 days. Days without
-                            survey responses are connected to show the overall trend.
-                          </p>
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>
+                            {comparisonMode ? "Satisfaction Trends Comparison" : "Satisfaction Trends (Past 30 Days)"}
+                          </CardTitle>
+                          <CardDescription>
+                            {comparisonMode
+                              ? "Compare satisfaction ratings between different time periods"
+                              : "Daily average customer satisfaction ratings"}
+                          </CardDescription>
                         </div>
-                      </CardContent>
-                    </Card>
-                  )}
+                        <div className="flex gap-2">
+                          <Button
+                            variant={comparisonMode ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setComparisonMode(!comparisonMode)}
+                          >
+                            {comparisonMode ? "Exit Comparison" : "Compare Periods"}
+                          </Button>
+                        </div>
+                      </div>
+                      {comparisonMode && (
+                        <div className="mt-4 flex gap-2">
+                          <Button
+                            variant={comparisonPeriod === "this-month-vs-last" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setComparisonPeriod("this-month-vs-last")}
+                          >
+                            This Month vs Last
+                          </Button>
+                          <Button
+                            variant={comparisonPeriod === "this-week-vs-last" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setComparisonPeriod("this-week-vs-last")}
+                          >
+                            This Week vs Last
+                          </Button>
+                          <Button
+                            variant={comparisonPeriod === "last-30-vs-previous" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setComparisonPeriod("last-30-vs-previous")}
+                          >
+                            Last 30 vs Previous 30
+                          </Button>
+                        </div>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      {comparisonMode && comparisonData ? (
+                        <>
+                          {/* Comparison Metrics */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div className="p-4 border rounded-lg">
+                              <p className="text-sm text-muted-foreground">Rating Change</p>
+                              <p
+                                className={`text-2xl font-bold ${
+                                  comparisonData.comparison.ratingChange > 0
+                                    ? "text-green-600"
+                                    : comparisonData.comparison.ratingChange < 0
+                                    ? "text-red-600"
+                                    : "text-gray-600"
+                                }`}
+                              >
+                                {comparisonData.comparison.ratingChange > 0 ? "+" : ""}
+                                {comparisonData.comparison.ratingChange}
+                              </p>
+                            </div>
+                            <div className="p-4 border rounded-lg">
+                              <p className="text-sm text-muted-foreground">Percentage Change</p>
+                              <p
+                                className={`text-2xl font-bold ${
+                                  comparisonData.comparison.percentageChange > 0
+                                    ? "text-green-600"
+                                    : comparisonData.comparison.percentageChange < 0
+                                    ? "text-red-600"
+                                    : "text-gray-600"
+                                }`}
+                              >
+                                {comparisonData.comparison.percentageChange > 0 ? "+" : ""}
+                                {comparisonData.comparison.percentageChange}%
+                              </p>
+                            </div>
+                            <div className="p-4 border rounded-lg">
+                              <p className="text-sm text-muted-foreground">Survey Count Change</p>
+                              <p className="text-2xl font-bold">
+                                {comparisonData.comparison.surveyCountChange > 0 ? "+" : ""}
+                                {comparisonData.comparison.surveyCountChange}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Comparison Chart */}
+                          <ResponsiveContainer width="100%" height={300}>
+                            <LineChart>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis
+                                dataKey="date"
+                                type="category"
+                                tickFormatter={(value, index) => {
+                                  const date = new Date(value);
+                                  return `${date.getMonth() + 1}/${date.getDate()}`;
+                                }}
+                              />
+                              <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
+                              <Tooltip
+                                labelFormatter={(value) => {
+                                  const date = new Date(value as string);
+                                  return date.toLocaleDateString();
+                                }}
+                              />
+                              <Legend />
+                              <Line
+                                data={comparisonData.period1.trends}
+                                type="monotone"
+                                dataKey="averageRating"
+                                stroke="#3b82f6"
+                                strokeWidth={2}
+                                dot={{ r: 4 }}
+                                connectNulls
+                                name={comparisonDates?.period1Label || "Period 1"}
+                              />
+                              <Line
+                                data={comparisonData.period2.trends}
+                                type="monotone"
+                                dataKey="averageRating"
+                                stroke="#f59e0b"
+                                strokeWidth={2}
+                                dot={{ r: 4 }}
+                                connectNulls
+                                name={comparisonDates?.period2Label || "Period 2"}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+
+                          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <p className="text-sm font-semibold text-blue-900">
+                                {comparisonDates?.period1Label}
+                              </p>
+                              <p className="text-xs text-blue-700 mt-1">
+                                Average: {comparisonData.period1.stats.averageRating} | Surveys:{" "}
+                                {comparisonData.period1.stats.totalSurveys}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                              <p className="text-sm font-semibold text-orange-900">
+                                {comparisonDates?.period2Label}
+                              </p>
+                              <p className="text-xs text-orange-700 mt-1">
+                                Average: {comparisonData.period2.stats.averageRating} | Surveys:{" "}
+                                {comparisonData.period2.stats.totalSurveys}
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      ) : !comparisonMode && trendsData && trendsData.length > 0 ? (
+                        <>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <LineChart data={trendsData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis
+                                dataKey="date"
+                                tickFormatter={(value) => {
+                                  const date = new Date(value);
+                                  return `${date.getMonth() + 1}/${date.getDate()}`;
+                                }}
+                              />
+                              <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
+                              <Tooltip
+                                labelFormatter={(value) => {
+                                  const date = new Date(value as string);
+                                  return date.toLocaleDateString();
+                                }}
+                                formatter={(value: any, name: string) => {
+                                  if (name === "averageRating") {
+                                    return value !== null ? [value, "Average Rating"] : ["No data", "Average Rating"];
+                                  }
+                                  return [value, name];
+                                }}
+                              />
+                              <Legend />
+                              <Line
+                                type="monotone"
+                                dataKey="averageRating"
+                                stroke="#3b82f6"
+                                strokeWidth={2}
+                                dot={{ r: 4 }}
+                                connectNulls
+                                name="Average Rating"
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                          <div className="mt-4 text-sm text-gray-600">
+                            <p>
+                              This chart shows the daily average satisfaction rating over the past 30 days. Days without
+                              survey responses are connected to show the overall trend.
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-center text-gray-500 py-8">No trend data available</p>
+                      )}
+                    </CardContent>
+                  </Card>
 
                   <Card>
                     <CardHeader>
