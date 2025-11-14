@@ -150,3 +150,9 @@
 - [x] Add comparison metrics (average change, percentage difference)
 - [x] Test comparison with various time periods
 - [x] Save checkpoint for deployment
+## Phase 20: GitHub Deployment
+- [x] Clone jossy450/mighty-sky-website repository
+- [ ] Copy backend code to repository
+- [ ] Configure git settings
+- [ ] Commit all changes
+- [ ] Push to GitHub repository
