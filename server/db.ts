@@ -1,7 +1,17 @@
 import { eq, desc, sql, like, and, gte, lte } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, satisfactionSurveys } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+
+import {
+  InsertUser,
+  users,
+  satisfactionSurveys,
+  knowledgeBase,
+  customerServiceRequests,
+  InsertKnowledgeBase,
+  InsertCustomerServiceRequest,
+} from "../drizzle/schema";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -9,7 +19,10 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const client = postgres(process.env.DATABASE_URL, {
+        prepare: false,
+      });
+      _db = drizzle(client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -42,7 +55,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       const value = user[field];
       if (value === undefined) return;
       const normalized = value ?? null;
-      values[field] = normalized;
+      (values as any)[field] = normalized;
       updateSet[field] = normalized;
     };
 
@@ -56,8 +69,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -68,9 +81,14 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
+    // Postgres-style upsert
+    await db
+      .insert(users)
+      .values(values)
+      .onConflictDoUpdate({
+        target: users.openId,
+        set: updateSet as any,
+      });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -84,12 +102,14 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
-
-import { knowledgeBase, customerServiceRequests, InsertKnowledgeBase, InsertCustomerServiceRequest } from "../drizzle/schema";
 
 /**
  * Search the knowledge base for a question that matches the user's query.
@@ -128,10 +148,16 @@ export async function addToKnowledgeBase(data: InsertKnowledgeBase) {
 /**
  * Create a new customer service request with automatic priority detection.
  */
-export async function createCustomerServiceRequest(userEmail: string, question: string, priority?: "high" | "medium" | "low") {
+export async function createCustomerServiceRequest(
+  userEmail: string,
+  question: string,
+  priority?: "high" | "medium" | "low",
+) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot create customer service request: database not available");
+    console.warn(
+      "[Database] Cannot create customer service request: database not available",
+    );
     return null;
   }
 
@@ -150,7 +176,9 @@ export async function createCustomerServiceRequest(userEmail: string, question: 
 export async function getPendingRequests() {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get pending requests: database not available");
+    console.warn(
+      "[Database] Cannot get pending requests: database not available",
+    );
     return [];
   }
 
@@ -162,7 +190,7 @@ export async function getPendingRequests() {
     .orderBy(
       // Custom priority ordering: high=3, medium=2, low=1
       desc(customerServiceRequests.priority),
-      desc(customerServiceRequests.createdAt)
+      desc(customerServiceRequests.createdAt),
     );
 
   return results;
@@ -174,11 +202,13 @@ export async function getPendingRequests() {
 export async function answerCustomerServiceRequest(
   requestId: number,
   answer: string,
-  answeredBy: string
+  answeredBy: string,
 ) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot answer customer service request: database not available");
+    console.warn(
+      "[Database] Cannot answer customer service request: database not available",
+    );
     return null;
   }
 
@@ -200,7 +230,9 @@ export async function answerCustomerServiceRequest(
 export async function getCustomerServiceRequestById(requestId: number) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get customer service request: database not available");
+    console.warn(
+      "[Database] Cannot get customer service request: database not available",
+    );
     return null;
   }
 
@@ -219,7 +251,9 @@ export async function getCustomerServiceRequestById(requestId: number) {
 export async function getAnsweredRequests() {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get answered requests: database not available");
+    console.warn(
+      "[Database] Cannot get answered requests: database not available",
+    );
     return [];
   }
 
@@ -235,7 +269,10 @@ export async function getAnsweredRequests() {
 /**
  * Get analytics data for average response time by priority.
  */
-export async function getAverageResponseTimeByPriority(startDate?: string, endDate?: string) {
+export async function getAverageResponseTimeByPriority(
+  startDate?: string,
+  endDate?: string,
+) {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot get analytics: database not available");
@@ -245,10 +282,14 @@ export async function getAverageResponseTimeByPriority(startDate?: string, endDa
   // Build where conditions
   const conditions = [eq(customerServiceRequests.status, "answered")];
   if (startDate) {
-    conditions.push(gte(customerServiceRequests.createdAt, new Date(startDate)));
+    conditions.push(
+      gte(customerServiceRequests.createdAt, new Date(startDate)),
+    );
   }
   if (endDate) {
-    conditions.push(lte(customerServiceRequests.createdAt, new Date(endDate)));
+    conditions.push(
+      lte(customerServiceRequests.createdAt, new Date(endDate)),
+    );
   }
 
   const results = await db
@@ -257,8 +298,12 @@ export async function getAverageResponseTimeByPriority(startDate?: string, endDa
     .where(and(...conditions));
 
   // Calculate average response time for each priority
-  const stats: { high: number[]; medium: number[]; low: number[] } = { high: [], medium: [], low: [] };
-  
+  const stats: { high: number[]; medium: number[]; low: number[] } = {
+    high: [],
+    medium: [],
+    low: [],
+  };
+
   results.forEach((req) => {
     if (req.answeredAt && req.createdAt) {
       const responseTime = req.answeredAt.getTime() - req.createdAt.getTime();
@@ -269,23 +314,26 @@ export async function getAverageResponseTimeByPriority(startDate?: string, endDa
   return [
     {
       priority: "high",
-      avgResponseTime: stats.high.length > 0 
-        ? stats.high.reduce((a, b) => a + b, 0) / stats.high.length 
-        : 0,
+      avgResponseTime:
+        stats.high.length > 0
+          ? stats.high.reduce((a, b) => a + b, 0) / stats.high.length
+          : 0,
       count: stats.high.length,
     },
     {
       priority: "medium",
-      avgResponseTime: stats.medium.length > 0 
-        ? stats.medium.reduce((a, b) => a + b, 0) / stats.medium.length 
-        : 0,
+      avgResponseTime:
+        stats.medium.length > 0
+          ? stats.medium.reduce((a, b) => a + b, 0) / stats.medium.length
+          : 0,
       count: stats.medium.length,
     },
     {
       priority: "low",
-      avgResponseTime: stats.low.length > 0 
-        ? stats.low.reduce((a, b) => a + b, 0) / stats.low.length 
-        : 0,
+      avgResponseTime:
+        stats.low.length > 0
+          ? stats.low.reduce((a, b) => a + b, 0) / stats.low.length
+          : 0,
       count: stats.low.length,
     },
   ];
@@ -294,20 +342,29 @@ export async function getAverageResponseTimeByPriority(startDate?: string, endDa
 /**
  * Get staff performance metrics.
  */
-export async function getStaffPerformanceMetrics(startDate?: string, endDate?: string) {
+export async function getStaffPerformanceMetrics(
+  startDate?: string,
+  endDate?: string,
+) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get staff metrics: database not available");
+    console.warn(
+      "[Database] Cannot get staff metrics: database not available",
+    );
     return [];
   }
 
   // Build where conditions
   const conditions = [eq(customerServiceRequests.status, "answered")];
   if (startDate) {
-    conditions.push(gte(customerServiceRequests.createdAt, new Date(startDate)));
+    conditions.push(
+      gte(customerServiceRequests.createdAt, new Date(startDate)),
+    );
   }
   if (endDate) {
-    conditions.push(lte(customerServiceRequests.createdAt, new Date(endDate)));
+    conditions.push(
+      lte(customerServiceRequests.createdAt, new Date(endDate)),
+    );
   }
 
   const results = await db
@@ -316,8 +373,11 @@ export async function getStaffPerformanceMetrics(startDate?: string, endDate?: s
     .where(and(...conditions));
 
   // Group by staff member
-  const staffStats: Record<string, { responseTimes: number[]; count: number }> = {};
-  
+  const staffStats: Record<
+    string,
+    { responseTimes: number[]; count: number }
+  > = {};
+
   results.forEach((req) => {
     if (req.answeredBy && req.answeredAt && req.createdAt) {
       if (!staffStats[req.answeredBy]) {
@@ -332,40 +392,50 @@ export async function getStaffPerformanceMetrics(startDate?: string, endDate?: s
   return Object.entries(staffStats).map(([staffName, stats]) => ({
     staffName,
     totalAnswered: stats.count,
-    avgResponseTime: stats.responseTimes.reduce((a, b) => a + b, 0) / stats.responseTimes.length,
+    avgResponseTime:
+      stats.responseTimes.reduce((a, b) => a + b, 0) /
+      stats.responseTimes.length,
   }));
 }
 
 /**
  * Get priority distribution for all requests.
  */
-export async function getPriorityDistribution(startDate?: string, endDate?: string) {
+export async function getPriorityDistribution(
+  startDate?: string,
+  endDate?: string,
+) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get priority distribution: database not available");
+    console.warn(
+      "[Database] Cannot get priority distribution: database not available",
+    );
     return [];
   }
 
   // Build where conditions
-  const conditions = [];
+  const conditions: any[] = [];
   if (startDate) {
-    conditions.push(gte(customerServiceRequests.createdAt, new Date(startDate)));
+    conditions.push(
+      gte(customerServiceRequests.createdAt, new Date(startDate)),
+    );
   }
   if (endDate) {
-    conditions.push(lte(customerServiceRequests.createdAt, new Date(endDate)));
+    conditions.push(
+      lte(customerServiceRequests.createdAt, new Date(endDate)),
+    );
   }
 
-  const results = conditions.length > 0
-    ? await db
-        .select()
-        .from(customerServiceRequests)
-        .where(and(...conditions))
-    : await db
-        .select()
-        .from(customerServiceRequests);
+  const results =
+    conditions.length > 0
+      ? await db
+          .select()
+          .from(customerServiceRequests)
+          .where(and(...conditions))
+      : await db.select().from(customerServiceRequests);
 
   const distribution = { high: 0, medium: 0, low: 0 };
-  
+
   results.forEach((req) => {
     distribution[req.priority]++;
   });
@@ -377,12 +447,13 @@ export async function getPriorityDistribution(startDate?: string, endDate?: stri
   ];
 }
 
-
 // Knowledge Base Management Functions
 export async function getAllKnowledgeBasePairs() {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get knowledge base pairs: database not available");
+    console.warn(
+      "[Database] Cannot get knowledge base pairs: database not available",
+    );
     return [];
   }
 
@@ -394,10 +465,16 @@ export async function getAllKnowledgeBasePairs() {
   return results;
 }
 
-export async function updateKnowledgeBasePair(id: number, question: string, answer: string) {
+export async function updateKnowledgeBasePair(
+  id: number,
+  question: string,
+  answer: string,
+) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot update knowledge base pair: database not available");
+    console.warn(
+      "[Database] Cannot update knowledge base pair: database not available",
+    );
     return false;
   }
 
@@ -412,21 +489,26 @@ export async function updateKnowledgeBasePair(id: number, question: string, answ
 export async function deleteKnowledgeBasePair(id: number) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot delete knowledge base pair: database not available");
+    console.warn(
+      "[Database] Cannot delete knowledge base pair: database not available",
+    );
     return false;
   }
 
-  await db
-    .delete(knowledgeBase)
-    .where(eq(knowledgeBase.id, id));
+  await db.delete(knowledgeBase).where(eq(knowledgeBase.id, id));
 
   return true;
 }
 
-export async function createKnowledgeBasePair(question: string, answer: string) {
+export async function createKnowledgeBasePair(
+  question: string,
+  answer: string,
+) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot create knowledge base pair: database not available");
+    console.warn(
+      "[Database] Cannot create knowledge base pair: database not available",
+    );
     return null;
   }
 
@@ -436,7 +518,6 @@ export async function createKnowledgeBasePair(question: string, answer: string) 
 
   return result;
 }
-
 
 // ===== Satisfaction Survey Functions =====
 
@@ -465,12 +546,16 @@ export async function getSatisfactionSurveyAnalytics(params?: {
   let query = db.select().from(satisfactionSurveys);
 
   if (params?.startDate || params?.endDate) {
-    const conditions = [];
+    const conditions: any[] = [];
     if (params.startDate) {
-      conditions.push(gte(satisfactionSurveys.createdAt, params.startDate));
+      conditions.push(
+        gte(satisfactionSurveys.createdAt, params.startDate),
+      );
     }
     if (params.endDate) {
-      conditions.push(lte(satisfactionSurveys.createdAt, params.endDate));
+      conditions.push(
+        lte(satisfactionSurveys.createdAt, params.endDate),
+      );
     }
     query = query.where(and(...conditions)) as any;
   }
@@ -479,16 +564,17 @@ export async function getSatisfactionSurveyAnalytics(params?: {
 
   // Calculate analytics
   const totalSurveys = surveys.length;
-  const averageRating = totalSurveys > 0
-    ? surveys.reduce((sum, s) => sum + s.rating, 0) / totalSurveys
-    : 0;
+  const averageRating =
+    totalSurveys > 0
+      ? surveys.reduce((sum, s) => sum + s.rating, 0) / totalSurveys
+      : 0;
 
   const ratingDistribution = {
-    1: surveys.filter(s => s.rating === 1).length,
-    2: surveys.filter(s => s.rating === 2).length,
-    3: surveys.filter(s => s.rating === 3).length,
-    4: surveys.filter(s => s.rating === 4).length,
-    5: surveys.filter(s => s.rating === 5).length,
+    1: surveys.filter((s) => s.rating === 1).length,
+    2: surveys.filter((s) => s.rating === 2).length,
+    3: surveys.filter((s) => s.rating === 3).length,
+    4: surveys.filter((s) => s.rating === 4).length,
+    5: surveys.filter((s) => s.rating === 5).length,
   };
 
   return {
@@ -496,10 +582,10 @@ export async function getSatisfactionSurveyAnalytics(params?: {
     averageRating: Math.round(averageRating * 10) / 10,
     ratingDistribution,
     recentFeedback: surveys
-      .filter(s => s.feedback)
+      .filter((s) => s.feedback)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, 10)
-      .map(s => ({
+      .map((s) => ({
         rating: s.rating,
         feedback: s.feedback,
         createdAt: s.createdAt,
@@ -535,16 +621,16 @@ export async function getSatisfactionTrends(params?: {
     .where(
       and(
         gte(satisfactionSurveys.createdAt, startDate),
-        lte(satisfactionSurveys.createdAt, endDate)
-      )
+        lte(satisfactionSurveys.createdAt, endDate),
+      ),
     )
     .orderBy(satisfactionSurveys.createdAt);
 
   // Group by date and calculate daily average
   const dailyData = new Map<string, { total: number; count: number }>();
 
-  surveys.forEach(survey => {
-    const dateKey = survey.createdAt.toISOString().split('T')[0]; // YYYY-MM-DD
+  surveys.forEach((survey) => {
+    const dateKey = survey.createdAt.toISOString().split("T")[0]; // YYYY-MM-DD
     const existing = dailyData.get(dateKey) || { total: 0, count: 0 };
     dailyData.set(dateKey, {
       total: existing.total + survey.rating,
@@ -553,16 +639,22 @@ export async function getSatisfactionTrends(params?: {
   });
 
   // Generate array with all dates in range, filling gaps with null
-  const result = [];
+  const result: {
+    date: string;
+    averageRating: number | null;
+    surveyCount: number;
+  }[] = [];
   const currentDate = new Date(startDate);
 
   while (currentDate <= endDate) {
-    const dateKey = currentDate.toISOString().split('T')[0];
+    const dateKey = currentDate.toISOString().split("T")[0];
     const data = dailyData.get(dateKey);
 
     result.push({
       date: dateKey,
-      averageRating: data ? Math.round((data.total / data.count) * 10) / 10 : null,
+      averageRating: data
+        ? Math.round((data.total / data.count) * 10) / 10
+        : null,
       surveyCount: data ? data.count : 0,
     });
 
@@ -594,11 +686,17 @@ export async function compareSatisfactionTrends(params: {
 
   // Calculate summary statistics for each period
   const calculateStats = (trends: typeof period1Trends) => {
-    const validRatings = trends.filter(t => t.averageRating !== null).map(t => t.averageRating!);
-    const totalSurveys = trends.reduce((sum, t) => sum + t.surveyCount, 0);
-    const avgRating = validRatings.length > 0
-      ? validRatings.reduce((sum, r) => sum + r, 0) / validRatings.length
-      : 0;
+    const validRatings = trends
+      .filter((t) => t.averageRating !== null)
+      .map((t) => t.averageRating!);
+    const totalSurveys = trends.reduce(
+      (sum, t) => sum + t.surveyCount,
+      0,
+    );
+    const avgRating =
+      validRatings.length > 0
+        ? validRatings.reduce((sum, r) => sum + r, 0) / validRatings.length
+        : 0;
 
     return {
       averageRating: Math.round(avgRating * 10) / 10,
@@ -611,10 +709,14 @@ export async function compareSatisfactionTrends(params: {
   const period2Stats = calculateStats(period2Trends);
 
   // Calculate comparison metrics
-  const ratingChange = period1Stats.averageRating - period2Stats.averageRating;
-  const percentageChange = period2Stats.averageRating > 0
-    ? Math.round((ratingChange / period2Stats.averageRating) * 100 * 10) / 10
-    : 0;
+  const ratingChange =
+    period1Stats.averageRating - period2Stats.averageRating;
+  const percentageChange =
+    period2Stats.averageRating > 0
+      ? Math.round(
+          (ratingChange / period2Stats.averageRating) * 100 * 10,
+        ) / 10
+      : 0;
 
   return {
     period1: {
@@ -628,7 +730,8 @@ export async function compareSatisfactionTrends(params: {
     comparison: {
       ratingChange: Math.round(ratingChange * 10) / 10,
       percentageChange,
-      surveyCountChange: period1Stats.totalSurveys - period2Stats.totalSurveys,
+      surveyCountChange:
+        period1Stats.totalSurveys - period2Stats.totalSurveys,
     },
   };
 }

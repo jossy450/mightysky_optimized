@@ -1,3 +1,4 @@
+import "dotenv/config";               // <-- load .env when running drizzle commands
 import { defineConfig } from "drizzle-kit";
 
 const connectionString = process.env.DATABASE_URL;
@@ -6,9 +7,9 @@ if (!connectionString) {
 }
 
 export default defineConfig({
-  schema: "./drizzle/schema.ts",
+  schema: "./drizzle/schema.ts",      // or wherever your schema file really lives
   out: "./drizzle",
-  dialect: "mysql",
+  dialect: "postgresql",              // <-- IMPORTANT: use Postgres, not MySQL
   dbCredentials: {
     url: connectionString,
   },

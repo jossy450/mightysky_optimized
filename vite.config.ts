@@ -9,7 +9,12 @@ import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 
 const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime()];
 
+import { defineConfig } from "vite";
+import path from "node:path";
+// …whatever other imports you have (plugins, etc.)
+
 export default defineConfig({
+  base: "/mightynew/",           // 👈 ADD THIS
   plugins,
   resolve: {
     alias: {

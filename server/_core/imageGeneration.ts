@@ -7,10 +7,10 @@
  *   });
  *
  * For editing:
- *   const { url: imageUrl } = await generateImage({
+ *    const { url: imageUrl } = await generateImage({
  *     prompt: "Add a rainbow to this landscape",
  *     originalImages: [{
- *       url: "https://example.com/original.jpg",
+ *       url: "https://mightyskytech.com/mightynew/path/to/original.jpg",
  *       mimeType: "image/jpeg"
  *     }]
  *   });

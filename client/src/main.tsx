@@ -38,10 +38,10 @@ queryClient.getMutationCache().subscribe(event => {
 });
 
 const trpcClient = trpc.createClient({
+  transformer: superjson, // ✅ transformer should be here
   links: [
     httpBatchLink({
-      url: "/api/trpc",
-      transformer: superjson,
+      url: "https://server-misty-sunset-2023.fly.dev/trpc",
       fetch(input, init) {
         return globalThis.fetch(input, {
           ...(init ?? {}),
