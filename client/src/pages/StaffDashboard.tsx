@@ -15,6 +15,7 @@ import { trpc } from "@/lib/trpc";
 import { Loader2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { TopNav } from "@/components/layout/TopNav"; // ✅ add this
 
 // Helper function to get priority badge styling
 const getPriorityBadge = (priority: "high" | "medium" | "low") => {
@@ -115,7 +116,8 @@ export default function StaffDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-50">
-        <Loader2 className="animate-spin h-8 w-8 text-slate-300" />
+        <TopNav />
+	<Loader2 className="animate-spin h-8 w-8 text-slate-300" />
       </div>
     );
   }
@@ -123,7 +125,8 @@ export default function StaffDashboard() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-50">
-        <Card className="w-full max-w-md border-slate-800 bg-slate-900">
+        <TopNav />
+	<Card className="w-full max-w-md border-slate-800 bg-slate-900">
           <CardHeader>
             <CardTitle className="text-lg">Staff dashboard</CardTitle>
             <CardDescription className="text-slate-400">
@@ -143,7 +146,8 @@ export default function StaffDashboard() {
   if (user?.role !== "admin") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-50">
-        <Card className="w-full max-w-md border-slate-800 bg-slate-900">
+        <TopNav />
+	<Card className="w-full max-w-md border-slate-800 bg-slate-900">
           <CardHeader>
             <CardTitle className="text-lg">Access denied</CardTitle>
             <CardDescription className="text-slate-400">
@@ -172,7 +176,8 @@ export default function StaffDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
-      {/* Top bar */}
+	<TopNav />      
+	{/* Top bar */}
       <header className="border-b border-slate-800 bg-slate-950/90 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>

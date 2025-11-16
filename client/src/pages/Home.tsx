@@ -2,13 +2,15 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
 import { Link } from "wouter";
+import { TopNav } from "@/components/layout/TopNav";
 
 export default function Home() {
   const { user, loading, isAuthenticated, logout } = useAuth();
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-50">
-      {/* Top nav */}
+      	<TopNav />
+	{/* Top nav */}
       <header className="w-full border-b border-slate-800/60 bg-slate-950/80 backdrop-blur">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">

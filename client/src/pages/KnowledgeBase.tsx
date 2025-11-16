@@ -13,6 +13,7 @@ import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Loader2, Search, Plus, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { TopNav } from "@/components/layout/TopNav"; // ✅ add this
 
 export default function KnowledgeBase() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -125,49 +126,58 @@ export default function KnowledgeBase() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-100" />
+      <div className="min-h-screen flex flex-col bg-slate-950">
+        <TopNav />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-slate-100" />
+        </div>
       </div>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-50 p-4">
-        <Card className="max-w-md w-full bg-slate-900/70 border-slate-700">
-          <CardHeader>
-            <CardTitle>Knowledge Base</CardTitle>
-            <CardDescription className="text-slate-400">
-              Log in to manage the chatbot&apos;s Q&amp;A knowledge.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="w-full">
-              <a href={getLoginUrl()}>Log In</a>
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex flex-col bg-slate-950 text-slate-50 p-4">
+        <TopNav />
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="max-w-md w-full bg-slate-900/70 border-slate-700">
+            <CardHeader>
+              <CardTitle>Knowledge Base</CardTitle>
+              <CardDescription className="text-slate-400">
+                Log in to manage the chatbot&apos;s Q&amp;A knowledge.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full">
+                <a href={getLoginUrl()}>Log In</a>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
   if (user?.role !== "admin") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-50 p-4">
-        <Card className="max-w-md w-full bg-slate-900/70 border-slate-700">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription className="text-slate-400">
-              This page is restricted to administrators only. If you should have
-              access, speak to your system administrator.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild variant="outline" className="w-full">
-              <a href="/">Back to Home</a>
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex flex-col bg-slate-950 text-slate-50 p-4">
+        <TopNav />
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="max-w-md w-full bg-slate-900/70 border-slate-700">
+            <CardHeader>
+              <CardTitle>Access Denied</CardTitle>
+              <CardDescription className="text-slate-400">
+                This page is restricted to administrators only. If you should
+                have access, speak to your system administrator.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" className="w-full">
+                <a href="/">Back to Home</a>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -176,6 +186,7 @@ export default function KnowledgeBase() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50">
+      <TopNav />
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -230,9 +241,7 @@ export default function KnowledgeBase() {
           {/* Left column – list of Q&A */}
           <Card className="bg-slate-900/70 border-slate-700">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">
-                All Q&amp;A Pairs
-              </CardTitle>
+              <CardTitle className="text-base">All Q&amp;A Pairs</CardTitle>
               <CardDescription className="text-slate-400">
                 Click an item to edit or remove it. Search to quickly find
                 specific topics.
@@ -308,7 +317,7 @@ export default function KnowledgeBase() {
                 <div className="py-10 text-center text-sm text-slate-400">
                   {searchQuery
                     ? "No Q&A pairs match your search."
-                    : "No Q&A pairs yet. Use “New Q&A” to add your first entry."}
+                    : 'No Q&A pairs yet. Use "New Q&A" to add your first entry.'}
                 </div>
               )}
             </CardContent>
@@ -456,8 +465,8 @@ export default function KnowledgeBase() {
                     Select or Create a Q&amp;A
                   </CardTitle>
                   <CardDescription className="text-slate-400">
-                    Choose an item from the list to edit, or click &quot;New
-                    Q&amp;A&quot; to add a fresh entry.
+                    Choose an item from the list to edit, or click "New Q&amp;A"
+                    to add a fresh entry.
                   </CardDescription>
                 </CardHeader>
               </Card>
