@@ -1,7 +1,13 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
@@ -19,10 +25,13 @@ export default function KnowledgeBase() {
   const [newAnswer, setNewAnswer] = useState("");
 
   // Fetch all Q&A pairs
-  const { data: knowledgeBasePairs, isLoading, refetch } = trpc.knowledgeBase.getAll.useQuery(
-    undefined,
-    { enabled: isAuthenticated && user?.role === "admin" }
-  );
+  const {
+    data: knowledgeBasePairs,
+    isLoading,
+    refetch,
+  } = trpc.knowledgeBase.getAll.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "admin",
+  });
 
   // Mutations
   const updateMutation = trpc.knowledgeBase.update.useMutation({
@@ -70,12 +79,19 @@ export default function KnowledgeBase() {
     setEditingId(id);
     setEditQuestion(question);
     setEditAnswer(answer);
+    setIsCreating(false);
   };
 
   const handleSaveEdit = () => {
-    if (editingId && editQuestion && editAnswer) {
-      updateMutation.mutate({ id: editingId, question: editQuestion, answer: editAnswer });
+    if (!editingId || !editQuestion.trim() || !editAnswer.trim()) {
+      toast.error("Please provide both a question and an answer.");
+      return;
     }
+    updateMutation.mutate({
+      id: editingId,
+      question: editQuestion.trim(),
+      answer: editAnswer.trim(),
+    });
   };
 
   const handleCancelEdit = () => {
@@ -85,33 +101,44 @@ export default function KnowledgeBase() {
   };
 
   const handleDelete = (id: number, question: string) => {
-    if (confirm(`Are you sure you want to delete this Q&A pair?\n\nQuestion: ${question}`)) {
+    if (
+      confirm(
+        `Are you sure you want to delete this Q&A pair?\n\nQuestion: ${question}`
+      )
+    ) {
       deleteMutation.mutate({ id });
     }
   };
 
   const handleCreate = () => {
-    if (newQuestion && newAnswer) {
-      createMutation.mutate({ question: newQuestion, answer: newAnswer });
+    if (!newQuestion.trim() || !newAnswer.trim()) {
+      toast.error("Please provide both a question and an answer.");
+      return;
     }
+    createMutation.mutate({
+      question: newQuestion.trim(),
+      answer: newAnswer.trim(),
+    });
   };
+
+  // ---- Auth Gates -----------------------------------------------------------
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-100" />
       </div>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <Card className="max-w-md w-full">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-50 p-4">
+        <Card className="max-w-md w-full bg-slate-900/70 border-slate-700">
           <CardHeader>
-            <CardTitle>Authentication Required</CardTitle>
-            <CardDescription>
-              You must be logged in to access the Knowledge Base Management page.
+            <CardTitle>Knowledge Base</CardTitle>
+            <CardDescription className="text-slate-400">
+              Log in to manage the chatbot&apos;s Q&amp;A knowledge.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -126,12 +153,13 @@ export default function KnowledgeBase() {
 
   if (user?.role !== "admin") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <Card className="max-w-md w-full">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-50 p-4">
+        <Card className="max-w-md w-full bg-slate-900/70 border-slate-700">
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
-            <CardDescription>
-              This page is restricted to administrators only. Please contact your system administrator if you believe you should have access.
+            <CardDescription className="text-slate-400">
+              This page is restricted to administrators only. If you should have
+              access, speak to your system administrator.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -144,164 +172,298 @@ export default function KnowledgeBase() {
     );
   }
 
+  // ---- Main UI --------------------------------------------------------------
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50">
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Knowledge Base Management</h1>
-            <p className="text-gray-600 mt-1">Manage chatbot Q&A pairs</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-1">
+              Content
+            </p>
+            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
+              Knowledge Base Management
+            </h1>
+            <p className="text-sm text-slate-400 mt-2">
+              Curate the answers your chatbot can use. Keep responses accurate,
+              on-brand and up to date.
+            </p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => setIsCreating(!isCreating)}>
+          <div className="flex flex-wrap gap-2 items-center justify-end">
+            <Button
+              onClick={() => {
+                setIsCreating(true);
+                setEditingId(null);
+              }}
+            >
               <Plus className="w-4 h-4 mr-2" />
-              Add New Q&A
+              New Q&amp;A
             </Button>
-            <Button asChild variant="outline">
-              <a href="/staff">Go to Staff Dashboard</a>
+            <Button asChild variant="outline" className="border-slate-600">
+              <a href="/staff">Staff Dashboard</a>
             </Button>
           </div>
         </div>
 
-        {/* Create New Q&A Form */}
-        {isCreating && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Create New Q&A Pair</CardTitle>
+        {/* Search bar */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+            <Input
+              type="text"
+              placeholder="Search questions or answers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-slate-900/60 border-slate-700 text-slate-50 placeholder:text-slate-500"
+            />
+          </div>
+          <p className="text-xs text-slate-500">
+            {knowledgeBasePairs?.length
+              ? `${knowledgeBasePairs.length} total entries`
+              : "No entries yet"}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr,3fr] gap-6 items-start">
+          {/* Left column – list of Q&A */}
+          <Card className="bg-slate-900/70 border-slate-700">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                All Q&amp;A Pairs
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Click an item to edit or remove it. Search to quickly find
+                specific topics.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Question</label>
-                <Input
-                  value={newQuestion}
-                  onChange={(e) => setNewQuestion(e.target.value)}
-                  placeholder="Enter the question..."
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Answer</label>
-                <textarea
-                  value={newAnswer}
-                  onChange={(e) => setNewAnswer(e.target.value)}
-                  placeholder="Enter the answer..."
-                  className="w-full min-h-[100px] p-2 border rounded-md"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleCreate}
-                  disabled={!newQuestion || !newAnswer || createMutation.isPending}
-                >
-                  {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Create
-                </Button>
-                <Button variant="outline" onClick={() => setIsCreating(false)}>
-                  Cancel
-                </Button>
-              </div>
+            <CardContent className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-slate-200" />
+                </div>
+              ) : filteredPairs && filteredPairs.length > 0 ? (
+                filteredPairs.map((pair) => (
+                  <button
+                    key={pair.id}
+                    onClick={() =>
+                      handleEdit(pair.id, pair.question, pair.answer)
+                    }
+                    className={`w-full text-left rounded-lg border px-3 py-3 transition ${
+                      editingId === pair.id
+                        ? "border-sky-500 bg-sky-950/40"
+                        : "border-slate-700 bg-slate-950/40 hover:bg-slate-900/80"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <p className="text-xs text-slate-500 mb-1">
+                          Q#{pair.id}
+                        </p>
+                        <h3 className="font-medium text-sm text-slate-50 line-clamp-2">
+                          {pair.question}
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                          {pair.answer}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 border-slate-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(pair.id, pair.question, pair.answer);
+                          }}
+                        >
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 border-slate-700"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(pair.id, pair.question);
+                          }}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <Trash2 className="w-3 h-3 text-red-400" />
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[10px] text-slate-500">
+                      Created{" "}
+                      {new Date(pair.createdAt).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </button>
+                ))
+              ) : (
+                <div className="py-10 text-center text-sm text-slate-400">
+                  {searchQuery
+                    ? "No Q&A pairs match your search."
+                    : "No Q&A pairs yet. Use “New Q&A” to add your first entry."}
+                </div>
+              )}
             </CardContent>
           </Card>
-        )}
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            type="text"
-            placeholder="Search questions or answers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        {/* Q&A Pairs List */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin" />
-          </div>
-        ) : filteredPairs && filteredPairs.length > 0 ? (
+          {/* Right column – editor / create form */}
           <div className="space-y-4">
-            {filteredPairs.map((pair) => (
-              <Card key={pair.id}>
-                <CardContent className="pt-6">
-                  {editingId === pair.id ? (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium">Question</label>
-                        <Input
-                          value={editQuestion}
-                          onChange={(e) => setEditQuestion(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Answer</label>
-                        <textarea
-                          value={editAnswer}
-                          onChange={(e) => setEditAnswer(e.target.value)}
-                          className="w-full min-h-[100px] p-2 border rounded-md"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={handleSaveEdit}
-                          disabled={updateMutation.isPending}
-                          size="sm"
-                        >
-                          {updateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                          Save
-                        </Button>
-                        <Button variant="outline" onClick={handleCancelEdit} size="sm">
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-2">Q: {pair.question}</h3>
-                          <p className="text-gray-700">A: {pair.answer}</p>
-                        </div>
-                        <div className="flex gap-2 ml-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(pair.id, pair.question, pair.answer)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(pair.id, pair.question)}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-500">
-                        Created: {new Date(pair.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  )}
+            {/* Create new */}
+            {isCreating && (
+              <Card className="bg-slate-900/70 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Create New Q&amp;A Pair
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Add a new question and answer for the chatbot to use.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-slate-300">
+                      Question
+                    </label>
+                    <Input
+                      value={newQuestion}
+                      onChange={(e) => setNewQuestion(e.target.value)}
+                      placeholder="Enter the question the customer might ask..."
+                      className="mt-1 bg-slate-950/60 border-slate-700 text-slate-50 placeholder:text-slate-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-300">
+                      Answer
+                    </label>
+                    <textarea
+                      value={newAnswer}
+                      onChange={(e) => setNewAnswer(e.target.value)}
+                      placeholder="Write the ideal answer the chatbot should give..."
+                      className="mt-1 w-full min-h-[140px] rounded-md bg-slate-950/60 border border-slate-700 px-3 py-2 text-sm text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/60"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      onClick={handleCreate}
+                      disabled={
+                        createMutation.isPending ||
+                        !newQuestion.trim() ||
+                        !newAnswer.trim()
+                      }
+                    >
+                      {createMutation.isPending && (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      )}
+                      Create
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-slate-600"
+                      onClick={() => setIsCreating(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
-            ))}
+            )}
+
+            {/* Edit existing */}
+            {editingId && !isCreating && (
+              <Card className="bg-slate-900/70 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Edit className="w-4 h-4" />
+                    Edit Q&amp;A Pair
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Update the wording or fix outdated information.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-slate-300">
+                      Question
+                    </label>
+                    <Input
+                      value={editQuestion}
+                      onChange={(e) => setEditQuestion(e.target.value)}
+                      className="mt-1 bg-slate-950/60 border-slate-700 text-slate-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-300">
+                      Answer
+                    </label>
+                    <textarea
+                      value={editAnswer}
+                      onChange={(e) => setEditAnswer(e.target.value)}
+                      className="mt-1 w-full min-h-[160px] rounded-md bg-slate-950/60 border border-slate-700 px-3 py-2 text-sm text-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500/60"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-between">
+                    <Button
+                      variant="outline"
+                      className="border-slate-600"
+                      size="sm"
+                      onClick={() => {
+                        setEditingId(null);
+                        setEditQuestion("");
+                        setEditAnswer("");
+                      }}
+                    >
+                      Close
+                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-slate-600"
+                        onClick={handleCancelEdit}
+                        disabled={updateMutation.isPending}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveEdit}
+                        disabled={updateMutation.isPending}
+                      >
+                        {updateMutation.isPending && (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        )}
+                        Save Changes
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {!editingId && !isCreating && (
+              <Card className="bg-slate-900/40 border-dashed border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Select or Create a Q&amp;A
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Choose an item from the list to edit, or click &quot;New
+                    Q&amp;A&quot; to add a fresh entry.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            )}
           </div>
-        ) : (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-gray-500">
-                {searchQuery
-                  ? "No Q&A pairs found matching your search."
-                  : "No Q&A pairs in the knowledge base yet. Add your first one!"}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        </div>
       </div>
     </div>
   );
