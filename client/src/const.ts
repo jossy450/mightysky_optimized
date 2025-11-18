@@ -1,3 +1,6 @@
+export const APP_TITLE = "Mighty Sky";
+export const APP_LOGO = "/logo.svg"; // or the correct path to your logo
+
 export const getLoginUrl = () => {
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;

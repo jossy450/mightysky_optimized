@@ -10,6 +10,31 @@ function getQueryParam(req: Request, key: string): string | undefined {
 }
 
 export function registerOAuthRoutes(app: Express) {
+  // New login initiator endpoint
+  app.get("/mightynew/oauth/app-auth", (req: Request, res: Response) => {
+    const appId = getQueryParam(req, "appId");
+    const redirectUri = getQueryParam(req, "redirectUri");
+    const state = getQueryParam(req, "state");
+
+    if (!appId || !redirectUri) {
+      return res.status(400).json({ error: "Missing appId or redirectUri" });
+    }
+
+    const base = process.env.OAUTH_PORTAL_URL?.replace(/\/$/, "") ?? "";
+    const url = new URL(`${base}/app-auth`);
+
+    url.searchParams.set("appId", appId);
+    url.searchParams.set("redirectUri", redirectUri);
+    url.searchParams.set("type", "signIn");
+
+    if (state) {
+      url.searchParams.set("state", state);
+    }
+
+    return res.redirect(302, url.toString());
+  });
+
+  // Existing OAuth callback handler
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
     const state = getQueryParam(req, "state");
@@ -42,7 +67,10 @@ export function registerOAuthRoutes(app: Express) {
       });
 
       const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
 
       res.redirect(302, "/");
     } catch (error) {
